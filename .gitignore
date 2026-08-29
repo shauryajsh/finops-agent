@@ -1,0 +1,18 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Secrets - never commit these
+.env
+*.json
+!package.json
+
+# Mac
+.DS_Store
+
+# dbt
+dbt_finops/target/
+dbt_finops/logs/
