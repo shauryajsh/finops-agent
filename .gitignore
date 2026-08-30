@@ -16,3 +16,4 @@ __pycache__/
 # dbt
 dbt_finops/target/
 dbt_finops/logs/
+logs/
