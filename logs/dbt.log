@@ -1,0 +1,94 @@
+[0m00:04:56.904973 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x109074d10>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10affec60>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10affe870>]}
+
+
+============================== 00:04:56.908222 | e74dbfff-7c87-431e-8303-e73c0b3e8aa3 ==============================
+[0m00:04:56.908222 [info ] [MainThread]: Running with dbt=1.12.3
+[0m00:04:56.908553 [debug] [MainThread]: running dbt with arguments {'static_parser': 'True', 'fail_fast': 'False', 'partial_parse': 'True', 'printer_width': '80', 'indirect_selection': 'eager', 'profiles_dir': '/Users/shauryajoshi/.dbt', 'hints_enabled': 'True', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'invocation_command': 'dbt init dbt_finops', 'version_check': 'True', 'write_json': 'True', 'log_cache_events': 'False', 'quiet': 'False', 'warn_error': 'None', 'maximum_seed_size_mib': '1', 'use_experimental_parser': 'False', 'introspect': 'True', 'log_format': 'default', 'target_path': 'None', 'no_print': 'None', 'debug': 'False', 'log_path': 'logs', 'cache_selected_only': 'False', 'use_colors': 'True', 'empty': 'None', 'send_anonymous_usage_stats': 'True'}
+[0m00:04:56.980439 [info ] [MainThread]: Creating dbt configuration folder at /Users/shauryajoshi/.dbt
+[0m00:04:56.981379 [info ] [MainThread]: A project called dbt_finops already exists here.
+[0m00:04:57.622678 [debug] [MainThread]: Resource report: {"command_name": "init", "command_success": true, "command_wall_clock_time": 0.79767156, "process_in_blocks": "0", "process_kernel_time": 0.165865, "process_mem_max_rss": "113360896", "process_out_blocks": "0", "process_user_time": 0.722418}
+[0m00:04:57.623159 [debug] [MainThread]: Command `dbt init` succeeded at 00:04:57.623088 after 0.80 seconds
+[0m00:04:57.623413 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x1090e1550>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10af6f440>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10af6f560>]}
+[0m00:04:57.623624 [debug] [MainThread]: Flushing usage events
+[0m00:04:58.630759 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m00:05:40.361920 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x106c13da0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x109dcad20>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x109dca930>]}
+
+
+============================== 00:05:40.365320 | a26b2a9b-299f-4941-824e-3fd5d1f3af4b ==============================
+[0m00:05:40.365320 [info ] [MainThread]: Running with dbt=1.12.3
+[0m00:05:40.365643 [debug] [MainThread]: running dbt with arguments {'maximum_seed_size_mib': '1', 'partial_parse': 'True', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'fail_fast': 'False', 'hints_enabled': 'True', 'quiet': 'False', 'use_experimental_parser': 'False', 'no_print': 'None', 'target_path': 'None', 'indirect_selection': 'eager', 'log_path': 'logs', 'log_cache_events': 'False', 'profiles_dir': '/Users/shauryajoshi/.dbt', 'empty': 'None', 'invocation_command': 'dbt init dbt_finops', 'send_anonymous_usage_stats': 'True', 'printer_width': '80', 'static_parser': 'True', 'warn_error': 'None', 'log_format': 'default', 'write_json': 'True', 'use_colors': 'True', 'introspect': 'True', 'cache_selected_only': 'False', 'debug': 'False', 'version_check': 'True'}
+[0m00:05:40.385747 [debug] [MainThread]: Starter project path: /Users/shauryajoshi/Work/Projects/finops-agent/venv/lib/python3.12/site-packages/dbt/include/starter_project
+[0m00:05:40.426957 [info ] [MainThread]: Setting up your profile.
+[0m00:07:06.094381 [info ] [MainThread]: Profile dbt_finops written to /Users/shauryajoshi/.dbt/profiles.yml using target's profile_template.yml and your supplied values.
+[0m00:07:06.132343 [info ] [MainThread]: Running dbt debug to validate the project...
+[0m00:07:06.133540 [info ] [MainThread]: dbt version: 1.12.3
+[0m00:07:06.133822 [info ] [MainThread]: python version: 3.12.14
+[0m00:07:06.134028 [info ] [MainThread]: python path: /Users/shauryajoshi/Work/Projects/finops-agent/venv/bin/python3.12
+[0m00:07:06.134241 [info ] [MainThread]: os info: macOS-15.4.1-arm64-arm-64bit
+[0m00:07:06.188895 [info ] [MainThread]: Using profiles dir at /Users/shauryajoshi/.dbt
+[0m00:07:06.189162 [info ] [MainThread]: Using profiles.yml file at /Users/shauryajoshi/.dbt/profiles.yml
+[0m00:07:06.189329 [info ] [MainThread]: Using dbt_project.yml file at /Users/shauryajoshi/Work/Projects/finops-agent/dbt_finops/dbt_project.yml
+[0m00:07:06.189483 [info ] [MainThread]: adapter type: bigquery
+[0m00:07:06.189618 [info ] [MainThread]: adapter version: 1.12.0
+[0m00:07:06.241686 [info ] [MainThread]: Configuration:
+[0m00:07:06.241920 [info ] [MainThread]:   profiles.yml file [[32mOK found and valid[0m]
+[0m00:07:06.242074 [info ] [MainThread]:   dbt_project.yml file [[32mOK found and valid[0m]
+[0m00:07:06.242213 [info ] [MainThread]: Required dependencies:
+[0m00:07:06.242524 [debug] [MainThread]: Executing "git --help"
+[0m00:07:06.268689 [debug] [MainThread]: STDOUT: "b"usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]\n           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]\n           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--no-lazy-fetch]\n           [--no-optional-locks] [--no-advice] [--bare] [--git-dir=<path>]\n           [--work-tree=<path>] [--namespace=<name>] [--config-env=<name>=<envvar>]\n           <command> [<args>]\n\nThese are common Git commands used in various situations:\n\nstart a working area (see also: git help tutorial)\n   clone      Clone a repository into a new directory\n   init       Create an empty Git repository or reinitialize an existing one\n\nwork on the current change (see also: git help everyday)\n   add        Add file contents to the index\n   mv         Move or rename a file, a directory, or a symlink\n   restore    Restore working tree files\n   rm         Remove files from the working tree and from the index\n\nexamine the history and state (see also: git help revisions)\n   bisect     Use binary search to find the commit that introduced a bug\n   diff       Show changes between commits, commit and working tree, etc\n   grep       Print lines matching a pattern\n   log        Show commit logs\n   show       Show various types of objects\n   status     Show the working tree status\n\ngrow, mark and tweak your common history\n   backfill   Download missing objects in a partial clone\n   branch     List, create, or delete branches\n   commit     Record changes to the repository\n   history    EXPERIMENTAL: Rewrite history\n   merge      Join two or more development histories together\n   rebase     Reapply commits on top of another base tip\n   reset      Set `HEAD` or the index to a known state\n   switch     Switch branches\n   tag        Create, list, delete or verify tags\n\ncollaborate (see also: git help workflows)\n   fetch      Download objects and refs from another repository\n   pull       Fetch from and integrate with another repository or a local branch\n   push       Update remote refs along with associated objects\n\n'git help -a' and 'git help -g' list available subcommands and some\nconcept guides. See 'git help <command>' or 'git help <concept>'\nto read about a specific subcommand or concept.\nSee 'git help git' for an overview of the system.\n""
+[0m00:07:06.269285 [debug] [MainThread]: STDERR: "b''"
+[0m00:07:06.269509 [info ] [MainThread]:  - git [[32mOK found[0m]
+
+[0m00:07:06.269699 [info ] [MainThread]: Connection:
+[0m00:07:06.269924 [info ] [MainThread]:   method: oauth
+[0m00:07:06.270064 [info ] [MainThread]:   database: finops-agent-505810
+[0m00:07:06.270207 [info ] [MainThread]:   execution_project: finops-agent-505810
+[0m00:07:06.270331 [info ] [MainThread]:   schema: dbt_finops
+[0m00:07:06.270451 [info ] [MainThread]:   location: US
+[0m00:07:06.270568 [info ] [MainThread]:   priority: interactive
+[0m00:07:06.270686 [info ] [MainThread]:   maximum_bytes_billed: None
+[0m00:07:06.270803 [info ] [MainThread]:   reservation: None
+[0m00:07:06.270922 [info ] [MainThread]:   impersonate_service_account: None
+[0m00:07:06.271041 [info ] [MainThread]:   job_retry_deadline_seconds: None
+[0m00:07:06.271155 [info ] [MainThread]:   job_retries: 1
+[0m00:07:06.271271 [info ] [MainThread]:   job_creation_timeout_seconds: None
+[0m00:07:06.271388 [info ] [MainThread]:   job_execution_timeout_seconds: 300
+[0m00:07:06.271506 [info ] [MainThread]:   job_link_info_level_log: False
+[0m00:07:06.271623 [info ] [MainThread]:   timeout_seconds: 300
+[0m00:07:06.271736 [info ] [MainThread]:   client_id: None
+[0m00:07:06.271851 [info ] [MainThread]:   token_uri: None
+[0m00:07:06.271964 [info ] [MainThread]:   compute_region: None
+[0m00:07:06.272080 [info ] [MainThread]:   dataproc_cluster_name: None
+[0m00:07:06.272199 [info ] [MainThread]:   gcs_bucket: None
+[0m00:07:06.272317 [info ] [MainThread]:   dataproc_batch: None
+[0m00:07:06.272696 [info ] [MainThread]: Registered adapter: bigquery=1.12.0
+[0m00:07:07.159204 [debug] [MainThread]: Acquiring new bigquery connection 'debug'
+[0m00:07:07.159654 [debug] [MainThread]: On debug: select 1 as id
+[0m00:07:07.159942 [debug] [MainThread]: Opening a new connection, currently in state init
+[0m00:07:13.939519 [debug] [MainThread]: BigQuery adapter: https://console.cloud.google.com/bigquery?project=finops-agent-505810&j=bq:US:74b64e34-2c06-4b97-843b-c1389017ca25&page=queryresults
+[0m00:07:14.347158 [debug] [MainThread]: SQL status: OK in 0.406 seconds
+[0m00:07:15.550796 [info ] [MainThread]:   Connection test: [[32mOK connection ok[0m]
+
+[0m00:07:15.552075 [info ] [MainThread]: [32mAll checks passed![0m
+[0m00:07:15.553575 [info ] [MainThread]: Your new dbt project "dbt_finops" was created!
+Initialized new project in /Users/shauryajoshi/Work/Projects/finops-agent/dbt_finops/dbt_finops
+
+For more information on how to configure the profiles.yml file,
+please consult the dbt documentation here:
+
+  https://docs.getdbt.com/docs/configure-your-profile
+
+One more thing:
+
+Need help? Don't hesitate to reach out to us via GitHub issues or on Slack:
+
+  https://community.getdbt.com/
+
+Happy modeling!
+
+[0m00:07:15.562633 [debug] [MainThread]: Resource report: {"command_name": "init", "command_success": true, "command_wall_clock_time": 95.25373, "process_in_blocks": "0", "process_kernel_time": 0.586607, "process_mem_max_rss": "207011840", "process_out_blocks": "0", "process_user_time": 1.379718}
+[0m00:07:15.563956 [debug] [MainThread]: Command `dbt init` succeeded at 00:07:15.563731 after 95.26 seconds
+[0m00:07:15.564545 [debug] [MainThread]: Connection 'debug' was properly closed.
+[0m00:07:15.565221 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x109dcade0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x108cd4290>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x106c13da0>]}
+[0m00:07:15.565955 [debug] [MainThread]: Flushing usage events
+[0m00:07:16.730724 [debug] [MainThread]: An error was encountered while trying to flush usage events

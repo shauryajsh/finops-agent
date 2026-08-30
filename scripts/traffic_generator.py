@@ -1,10 +1,8 @@
-"""
-Simulates a mix of efficient and wasteful BigQuery queries against a public
-dataset, to populate INFORMATION_SCHEMA.JOBS_BY_PROJECT with realistic
-billing activity for the FinOps agent to analyze.
+"""Generates synthetic BigQuery query activity for the FinOps agent to analyze.
 
-Safety: every query is dry-run first to estimate bytes processed. Anything
-above MAX_BYTES_PER_QUERY is skipped instead of executed.
+Runs a mix of efficient and wasteful queries against a public dataset,
+populating INFORMATION_SCHEMA.JOBS_BY_PROJECT with realistic billing history.
+Each query is dry-run first; anything over MAX_BYTES_PER_QUERY is skipped.
 """
 
 from google.cloud import bigquery
@@ -42,12 +40,14 @@ QUERIES = [
 
 
 def estimate_bytes(sql: str) -> int:
+    """Returns bytes a query would process, without running it."""
     job_config = bigquery.QueryJobConfig(dry_run=True, use_query_cache=False)
     query_job = client.query(sql, job_config=job_config)
     return query_job.total_bytes_processed
 
 
 def run_query(label: str, sql: str, simulated_user: str):
+    """Runs a query if it's under the safety cap, else skips it."""
     estimated = estimate_bytes(sql)
     estimated_gb = estimated / 1024**3
     print(f"[{label}] estimated: {estimated_gb:.3f} GB", end=" ")

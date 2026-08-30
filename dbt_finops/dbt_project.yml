@@ -1,0 +1,20 @@
+# dbt project configuration
+
+name: 'dbt_finops'
+version: '1.0.0'
+
+# Must match a profile defined in profiles.yml
+profile: 'dbt_finops'
+
+# Directory layout
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+# Directories removed by `dbt clean`
+clean-targets:
+  - "target"
+  - "dbt_packages"
