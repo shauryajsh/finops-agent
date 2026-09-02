@@ -1,8 +1,9 @@
 """Generates synthetic BigQuery query activity for the FinOps agent to analyze.
 
-Runs a mix of efficient and wasteful queries against a public dataset,
-populating INFORMATION_SCHEMA.JOBS_BY_PROJECT with realistic billing history.
-Each query is dry-run first; anything over MAX_BYTES_PER_QUERY is skipped.
+Runs a mix of cheap and expensive queries across two public datasets,
+simulating multiple teams, to populate INFORMATION_SCHEMA.JOBS_BY_PROJECT
+with realistic billing history. Each query is dry-run first; anything over
+MAX_BYTES_PER_QUERY is skipped.
 """
 
 from google.cloud import bigquery
@@ -10,32 +11,35 @@ import time
 
 # ---- CONFIG ----
 PROJECT_ID = "finops-agent-505810"
-DATASET = "bigquery-public-data.austin_311"
-TABLE = "311_service_requests"
 MAX_BYTES_PER_QUERY = 5 * 1024**3  # 5 GB safety cap per query
+
+AUSTIN = "bigquery-public-data.austin_311.311_service_requests"
+SHAKESPEARE = "bigquery-public-data.samples.shakespeare"
 
 client = bigquery.Client(project=PROJECT_ID)
 
-# Each entry: (label, sql, simulated_user)
+# BigQuery bills by columns scanned, not rows filtered — cost scales with
+# column count, not WHERE/LIMIT. Two datasets simulate two teams.
 QUERIES = [
+    # ops team - austin_311
+    ("ops_single_column", f"SELECT status FROM `{AUSTIN}` LIMIT 500", "analyst_1"),
     (
-        "efficient_filtered",
-        f"""
-        SELECT complaint_description, status
-        FROM `{DATASET}.{TABLE}`
-        WHERE status = 'Closed'
-        LIMIT 100
-        """,
-        "analyst_1",
-    ),
-    (
-        "wasteful_select_star",
-        f"""
-        SELECT *
-        FROM `{DATASET}.{TABLE}`
-        """,
+        "ops_two_columns_filtered",
+        f"SELECT complaint_description, status FROM `{AUSTIN}` WHERE status = 'Closed' LIMIT 100",
         "analyst_2",
     ),
+    ("ops_select_star", f"SELECT * FROM `{AUSTIN}`", "analyst_3"),
+    ("ops_select_star_scheduled", f"SELECT * FROM `{AUSTIN}`", "scheduled_dashboard"),
+
+    # research team - shakespeare
+    ("research_single_column", f"SELECT word FROM `{SHAKESPEARE}` LIMIT 500", "analyst_4"),
+    (
+        "research_two_columns_filtered",
+        f"SELECT word, word_count FROM `{SHAKESPEARE}` WHERE corpus = 'hamlet'",
+        "analyst_4",
+    ),
+    ("research_select_star", f"SELECT * FROM `{SHAKESPEARE}`", "analyst_5"),
+    ("research_select_star_scheduled", f"SELECT * FROM `{SHAKESPEARE}`", "scheduled_report"),
 ]
 
 
@@ -56,8 +60,10 @@ def run_query(label: str, sql: str, simulated_user: str):
         print("-> SKIPPED (over safety cap)")
         return
 
+    # Cache disabled so repeated queries still show real billed bytes.
     job_config = bigquery.QueryJobConfig(
-        labels={"simulated_user": simulated_user, "query_type": label}
+        labels={"simulated_user": simulated_user, "query_type": label},
+        use_query_cache=False,
     )
     query_job = client.query(sql, job_config=job_config)
     query_job.result()
