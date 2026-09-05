@@ -1,0 +1,17 @@
+models:
+  - name: fct_flagged_queries
+    description: Flags queries with cost in the top percentile and above a minimum floor.
+    columns:
+      - name: job_id
+        description: Unique identifier for a BigQuery job.
+        tests:
+          - not_null
+          - unique
+      - name: query_owner
+        description: Simulated user or scheduled job that ran the query.
+        tests:
+          - not_null
+      - name: is_flagged
+        description: True if the query is flagged as unusually and meaningfully expensive.
+        tests:
+          - not_null

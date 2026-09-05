@@ -1,0 +1,13 @@
+models:
+  - name: stg_bigquery_jobs
+    description: Cleaned view over BigQuery's own job/billing metadata.
+    columns:
+      - name: job_id
+        description: Unique identifier for a BigQuery job.
+        tests:
+          - not_null
+          - unique
+      - name: creation_time
+        description: When the job was created.
+        tests:
+          - not_null
