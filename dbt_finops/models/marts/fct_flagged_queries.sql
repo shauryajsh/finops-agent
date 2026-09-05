@@ -50,7 +50,9 @@ benchmarked as (
     select
         *,
         avg(estimated_cost_usd) over () as avg_cost_usd,
-        stddev(estimated_cost_usd) over () as stddev_cost_usd
+        -- cost_flag_percentile is set in dbt_project.yml under vars.
+        -- 0.95 here is only the fallback used if that var is missing.
+        percentile_cont(estimated_cost_usd, {{ var('cost_flag_percentile', 0.95) }}) over () as cost_threshold_usd
     from costed
 
 )
@@ -63,8 +65,15 @@ select
     round(tb_billed, 6) as tb_billed,
     round(estimated_cost_usd, 6) as estimated_cost_usd,
     round(avg_cost_usd, 6) as avg_cost_usd,
+    round(cost_threshold_usd, 6) as cost_threshold_usd,
     creation_time,
-    estimated_cost_usd > avg_cost_usd + coalesce(stddev_cost_usd, 0) as is_flagged
+    -- Flags the top percentile of cost (scale-invariant, adapts to any
+    -- deployment's real cost range) AND above a minimum floor. The floor
+    -- is a business decision, not derivable from data - set
+    -- cost_flag_min_usd in dbt_project.yml to your own typical spend.
+    -- 0.002 below is only the fallback used if that var is missing.
+    (estimated_cost_usd >= cost_threshold_usd)
+        and (estimated_cost_usd >= {{ var('cost_flag_min_usd', 0.002) }}) as is_flagged
 
 from benchmarked
 order by estimated_cost_usd desc

@@ -6,6 +6,10 @@ version: '1.0.0'
 # Must match a profile defined in profiles.yml
 profile: 'dbt_finops'
 
+vars:
+  cost_flag_percentile: 0.95
+  cost_flag_min_usd: 0.002
+
 # Directory layout
 model-paths: ["models"]
 analysis-paths: ["analyses"]
