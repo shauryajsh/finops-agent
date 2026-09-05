@@ -7,9 +7,13 @@ specific fix. Compares against the rule-based baseline from Phase 3.
 
 from google.cloud import bigquery
 from llm_client import ask_llm
+import os
+from dotenv import load_dotenv
 
-PROJECT_ID = "finops-agent-505810"
-DATASET = "dbt_finops"
+load_dotenv()
+
+PROJECT_ID = os.environ["GCP_PROJECT_ID"]
+DATASET = os.environ["BIGQUERY_DATASET"]
 
 # Tables our traffic generator queries against - used to detect which
 # table a flagged query references, so we can fetch its schema.

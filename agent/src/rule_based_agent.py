@@ -6,9 +6,13 @@ baseline to compare against the LLM agent.
 """
 
 from google.cloud import bigquery
+import os
+from dotenv import load_dotenv
 
-PROJECT_ID = "finops-agent-505810"
-DATASET = "dbt_finops"
+load_dotenv()
+
+PROJECT_ID = os.environ["GCP_PROJECT_ID"]
+DATASET = os.environ["BIGQUERY_DATASET"]
 
 client = bigquery.Client(project=PROJECT_ID)
 

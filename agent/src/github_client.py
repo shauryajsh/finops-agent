@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
-GITHUB_REPO = "shauryajsh/finops-agent"
+GITHUB_REPO = os.environ["GITHUB_REPO"]
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/issues"
 
 
