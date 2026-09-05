@@ -14,6 +14,8 @@ select
     state,
     error_result is not null as had_error
 
+-- region-us must match your BigQuery dataset's actual region, or this
+-- returns empty results with no error.
 from `region-us`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
 
 where

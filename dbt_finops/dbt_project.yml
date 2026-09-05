@@ -23,6 +23,9 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
+# Staging stays a view (cheap, recalculated on read) since it does no real
+# computation. Marts is a table since it computes real aggregates - storing
+# the result once is cheaper than recalculating it on every query.
 models:
   dbt_finops:
     staging:

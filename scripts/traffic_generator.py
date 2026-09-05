@@ -9,6 +9,8 @@ MAX_BYTES_PER_QUERY is skipped.
 from google.cloud import bigquery
 import time
 
+# Hardcoded, not read from .env - this script only generates demo data for
+# this specific project and is never run by someone using the real tool.
 # ---- CONFIG ----
 PROJECT_ID = "finops-agent-505810"
 MAX_BYTES_PER_QUERY = 5 * 1024**3  # 5 GB safety cap per query

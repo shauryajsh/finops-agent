@@ -11,6 +11,9 @@ from groq import Groq
 
 load_dotenv()
 
+# Providers periodically retire model names - if either fails with a 404,
+# check ai.google.dev/gemini-api/docs/models or console.groq.com/docs/models
+# for other model options to choose from
 GEMINI_MODEL = "gemini-3.6-flash"
 GROQ_MODEL = "openai/gpt-oss-120b"
 
