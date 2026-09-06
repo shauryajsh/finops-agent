@@ -1,60 +1,95 @@
 """Generates synthetic BigQuery query activity for the FinOps agent to analyze.
 
-Runs a mix of cheap and expensive queries across two public datasets,
-simulating multiple teams, to populate INFORMATION_SCHEMA.JOBS_BY_PROJECT
-with realistic billing history. Each query is dry-run first; anything over
-MAX_BYTES_PER_QUERY is skipped.
+Runs cheap and expensive query pairs against large, real public tables,
+populating INFORMATION_SCHEMA.JOBS_BY_PROJECT with realistic billing history.
+Each query is dry-run first; anything over MAX_BYTES_PER_QUERY is skipped.
 """
 
 from google.cloud import bigquery
 import time
 
-# Hardcoded, not read from .env - this script only generates demo data for
-# this specific project and is never run by someone using the real tool.
 # ---- CONFIG ----
 PROJECT_ID = "finops-agent-505810"
-MAX_BYTES_PER_QUERY = 5 * 1024**3  # 5 GB safety cap per query
+MAX_BYTES_PER_QUERY = 50 * 1024**3  # 50 GB safety cap per query
 
-AUSTIN = "bigquery-public-data.austin_311.311_service_requests"
-SHAKESPEARE = "bigquery-public-data.samples.shakespeare"
+HACKERNEWS = "bigquery-public-data.hacker_news.full"
+CRYPTO = "bigquery-public-data.crypto_ethereum.transactions"
+GITHUB = "bigquery-public-data.github_repos.commits"
 
 client = bigquery.Client(project=PROJECT_ID)
 
-# BigQuery bills by columns scanned, not rows filtered — cost scales with
-# column count, not WHERE/LIMIT. Two datasets simulate two teams.
+# Each pair targets the same real, large table: one filtered/few-column
+# query (cheap), one missing the same protection (expensive). Cost
+# contrast comes from filtering and column selection, not table size alone.
 QUERIES = [
-    # ops team - austin_311
-    ("ops_single_column", f"SELECT status FROM `{AUSTIN}` LIMIT 500", "analyst_1"),
     (
-        "ops_two_columns_filtered",
-        f"SELECT complaint_description, status FROM `{AUSTIN}` WHERE status = 'Closed' LIMIT 100",
+        "hackernews_few_columns",
+        f"""
+        SELECT title, score
+        FROM `{HACKERNEWS}`
+        """,
+        "analyst_5",
+    ),
+    (
+        "hackernews_select_star",
+        f"""
+        SELECT *
+        FROM `{HACKERNEWS}`
+        """,
+        "analyst_6",
+    ),
+    (
+        "crypto_partition_filtered",
+        f"""
+        SELECT `hash`, from_address, to_address, value
+        FROM `{CRYPTO}`
+        WHERE block_timestamp BETWEEN TIMESTAMP('2024-01-01') AND TIMESTAMP('2024-01-02')
+        """,
+        "analyst_1",
+    ),
+    (
+        "crypto_wide_range",
+        f"""
+        SELECT `hash`, from_address, to_address, value
+        FROM `{CRYPTO}`
+        WHERE block_timestamp BETWEEN TIMESTAMP('2023-01-01') AND TIMESTAMP('2024-01-01')
+        """,
         "analyst_2",
     ),
-    ("ops_select_star", f"SELECT * FROM `{AUSTIN}`", "analyst_3"),
-    ("ops_select_star_scheduled", f"SELECT * FROM `{AUSTIN}`", "scheduled_dashboard"),
-
-    # research team - shakespeare
-    ("research_single_column", f"SELECT word FROM `{SHAKESPEARE}` LIMIT 500", "analyst_4"),
     (
-        "research_two_columns_filtered",
-        f"SELECT word, word_count FROM `{SHAKESPEARE}` WHERE corpus = 'hamlet'",
+        "github_few_columns",
+        f"""
+        SELECT commit, author.name
+        FROM `{GITHUB}`
+        LIMIT 100
+        """,
+        "analyst_3",
+    ),
+    (
+        "github_select_star",
+        f"""
+        SELECT *
+        FROM `{GITHUB}`
+        """,
         "analyst_4",
     ),
-    ("research_select_star", f"SELECT * FROM `{SHAKESPEARE}`", "analyst_5"),
-    ("research_select_star_scheduled", f"SELECT * FROM `{SHAKESPEARE}`", "scheduled_report"),
 ]
 
 
-def estimate_bytes(sql: str) -> int:
+def estimate_bytes(sql: str, label: str, simulated_user: str) -> int:
     """Returns bytes a query would process, without running it."""
-    job_config = bigquery.QueryJobConfig(dry_run=True, use_query_cache=False)
+    job_config = bigquery.QueryJobConfig(
+        dry_run=True,
+        use_query_cache=False,
+        labels={"simulated_user": simulated_user, "query_type": label, "dry_run_only": "true"},
+    )
     query_job = client.query(sql, job_config=job_config)
     return query_job.total_bytes_processed
 
 
 def run_query(label: str, sql: str, simulated_user: str):
     """Runs a query if it's under the safety cap, else skips it."""
-    estimated = estimate_bytes(sql)
+    estimated = estimate_bytes(sql, label, simulated_user)
     estimated_gb = estimated / 1024**3
     print(f"[{label}] estimated: {estimated_gb:.3f} GB", end=" ")
 
