@@ -1,16 +1,17 @@
 """Rule-based diagnosis of flagged BigQuery queries.
 
-Reads flagged rows from fct_flagged_queries and applies simple heuristics
+Reads flagged rows from fct_flagged_queries and applies simple rules
 to explain likely cost drivers, before any LLM is involved. Serves as a
-baseline to compare against the LLM agent.
+fast, free first-pass filter ahead of the LLM diagnosis.
 """
 
-from google.cloud import bigquery
 import os
 from dotenv import load_dotenv
+from google.cloud import bigquery
 
 load_dotenv()
 
+# Config comes from .env - see .env.example for required variables.
 PROJECT_ID = os.environ["GCP_PROJECT_ID"]
 DATASET = os.environ["BIGQUERY_DATASET"]
 
@@ -35,17 +36,34 @@ def diagnose(query_text: str) -> list[str]:
 
     has_select_star = "SELECT *" in normalized
     has_where = "WHERE" in normalized
+    has_wildcard_table = "*`" in query_text
+    has_count_distinct = "COUNT(DISTINCT" in normalized
+    has_order_by = "ORDER BY" in normalized
+    has_limit = "LIMIT" in normalized
 
     if has_select_star:
         reasons.append(
-            "Uses SELECT * — BigQuery bills by columns scanned, so this "
-            "reads every column even if only a few are needed."
+            "Uses SELECT * — BigQuery bills by columns scanned, not rows filtered."
         )
         if not has_where:
             reasons.append(
-                "Also has no WHERE clause. If this table is partitioned, "
-                "a filter on the partition column would reduce scan size further."
+                "Also missing a WHERE clause - filter on the partition column, if this table has one."
             )
+
+    if has_wildcard_table:
+        reasons.append(
+            "Uses a wildcard table (table_*) - scans every match unless filtered on _TABLE_SUFFIX."
+        )
+
+    if has_count_distinct:
+        reasons.append(
+            "Uses COUNT(DISTINCT ...) - expensive on large columns. Try APPROX_COUNT_DISTINCT instead."
+        )
+
+    if has_order_by and not has_limit:
+        reasons.append(
+            "ORDER BY with no LIMIT - sorts the full result set for no reason."
+        )
 
     if not reasons:
         reasons.append("No issue matched by current rules.")
