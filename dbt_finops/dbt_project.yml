@@ -9,6 +9,7 @@ profile: 'dbt_finops'
 vars:
   cost_flag_percentile: 0.95
   cost_flag_min_usd: 0.002
+  recurring_min_runs: 2
 
 # Directory layout
 model-paths: ["models"]
