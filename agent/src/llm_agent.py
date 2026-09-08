@@ -6,6 +6,7 @@ is expensive with a specific fix.
 """
 
 import os
+import json
 from dotenv import load_dotenv
 from google.cloud import bigquery
 from llm_client import ask_llm
@@ -56,9 +57,11 @@ def find_table(query_text: str) -> str | None:
 
 
 def get_schema(table_id: str) -> list[str]:
-    """Returns column name/type pairs for a table."""
+    """Returns column name/type pairs for a table, pre-quoted with backticks
+    so reserved-word column names (like `hash` or `by`) can't break generated SQL.
+    """
     table = client.get_table(table_id)
-    return [f"{field.name} ({field.field_type})" for field in table.schema]
+    return [f"`{field.name}` ({field.field_type})" for field in table.schema]
 
 
 def get_partition_info(table_id: str) -> str:
@@ -77,6 +80,17 @@ def get_partition_info(table_id: str) -> str:
 
     return f"{partition_text}. {clustering_text}."
 
+def parse_llm_json(raw_text: str) -> dict:
+    """Parses the LLM's JSON reply, stripping markdown code fences if present."""
+    text = raw_text.strip()
+
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+        text = text.strip()
+
+    return json.loads(text)
 
 def build_prompt(query_text: str, schema: list[str], partition_info: str) -> str:
     """Builds the prompt sent to the LLM for one flagged query."""
@@ -122,13 +136,77 @@ def diagnose(query_text: str) -> str:
     prompt = build_prompt(query_text, schema, partition_info)
     return ask_llm(prompt)
 
+def build_fix_prompt(query_text: str, schema: list[str], partition_info: str) -> str:
+    """Builds a prompt asking the LLM to diagnose a query and rewrite it."""
+    schema_text = "\n".join(schema)
+    return f"""You are a BigQuery cost optimization expert. A query has been
+flagged as unusually expensive. Diagnose why, and rewrite it as a
+corrected, lower-cost query returning equivalent results.
+
+Query:
+{query_text}
+
+Table schema:
+{schema_text}
+
+Table partitioning:
+{partition_info}
+
+Important: a WHERE filter only reduces cost if it targets the actual
+partitioning column on a partitioned table. If the table is not
+partitioned, filtering does not reduce bytes scanned - only selecting
+fewer columns does.
+
+Do not add filters that were not in the original query unless they
+target the actual partitioning column on a partitioned table. Any other
+added filter changes which rows are returned, not just cost, and is
+not an acceptable fix.
+
+Column names in the schema above are shown with backticks. Keep them
+backtick-quoted in the fixed query exactly as shown.
+
+Reply with valid JSON only, no other text, in exactly this format:
+{{"explanation": "2-3 sentences on what drives the cost", "fixed_query": "the corrected SQL as a single string"}}"""
+
+def diagnose_and_fix(query_text: str) -> dict:
+    """Returns an explanation and a corrected query for one flagged query."""
+    table = find_table(query_text)
+    if table is None:
+        return {"explanation": "Could not identify table - skipping.", "fixed_query": None}
+
+    schema = get_schema(table)
+    partition_info = get_partition_info(table)
+    prompt = build_fix_prompt(query_text, schema, partition_info)
+    raw_response = ask_llm(prompt)
+
+    try:
+        return parse_llm_json(raw_response)
+    except (json.JSONDecodeError, IndexError):
+        return {"explanation": raw_response, "fixed_query": None}
+
+def estimate_bytes_for(sql: str) -> int:
+    """Returns bytes a query would process, without running it."""
+    job_config = bigquery.QueryJobConfig(dry_run=True, use_query_cache=False)
+    query_job = client.query(sql, job_config=job_config)
+    return query_job.total_bytes_processed
+
+
+def validate_fix(original_query: str, fixed_query: str) -> dict:
+    """Dry-runs the fixed query to check it's valid and measure real byte savings."""
+    if fixed_query is None:
+        return {"valid": False, "original_bytes": None, "fixed_bytes": None}
+
+    try:
+        original_bytes = estimate_bytes_for(original_query)
+        fixed_bytes = estimate_bytes_for(fixed_query)
+        return {"valid": True, "original_bytes": original_bytes, "fixed_bytes": fixed_bytes}
+    except Exception as e:
+        return {"valid": False, "error": str(e), "original_bytes": None, "fixed_bytes": None}
 
 if __name__ == "__main__":
     flagged = get_flagged_queries()
-    print(f"Found {len(flagged)} flagged queries\n")
-
-    for row in flagged:
-        print(f"Owner: {row.query_owner}")
-        print(f"Cost: ${row.estimated_cost_usd:.6f} (avg: ${row.avg_cost_usd:.6f})")
-        print(f"LLM diagnosis: {diagnose(row.query)}")
-        print()
+    row = flagged[0]
+    result = diagnose_and_fix(row.query)
+    print("Fixed query:", result["fixed_query"])
+    print()
+    print("Validation:", validate_fix(row.query, result["fixed_query"]))
