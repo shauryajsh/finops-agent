@@ -7,31 +7,33 @@ both systems against the same cases for a real comparison number.
 import sys
 from pathlib import Path
 
+# evals sits next to src, not inside it - add src to the path manually.
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 from rule_based_agent import diagnose as rule_based_diagnose
-from llm_agent import diagnose as llm_diagnose
+from llm_agent import diagnose_and_fix
 
-AUSTIN = "`bigquery-public-data.austin_311.311_service_requests`"
-SHAKESPEARE = "`bigquery-public-data.samples.shakespeare`"
+HACKERNEWS = "`bigquery-public-data.hacker_news.full`"
+GITHUB = "`bigquery-public-data.github_repos.commits`"
+CRYPTO = "`bigquery-public-data.crypto_ethereum.transactions`"
 
 CASES = [
     {
-        "query": f"SELECT * FROM {AUSTIN}",
+        "query": f"SELECT * FROM {HACKERNEWS}",
         "expected_concepts": ["select *"],
         "description": "SELECT * with no filter",
     },
     {
-        "query": f"SELECT * FROM {AUSTIN} WHERE status = 'Closed'",
+        "query": f"SELECT * FROM {GITHUB} WHERE repo_name = 'torvalds/linux'",
         "expected_concepts": ["select *"],
         "description": "SELECT * even with a filter",
     },
     {
-        "query": f"SELECT * FROM {SHAKESPEARE}",
+        "query": f"SELECT * FROM {CRYPTO}",
         "expected_concepts": ["select *"],
         "description": "SELECT * on a different table",
     },
     {
-        "query": f"SELECT word, word_count, corpus, corpus_date FROM {SHAKESPEARE}",
+        "query": f"SELECT id, type, by, timestamp, text, title, url, score, parent, descendants, ranking, deleted, dead, time FROM {HACKERNEWS}",
         "expected_concepts": ["all", "column"],
         "description": "Every column named explicitly, same cost as SELECT * but no literal SELECT * text",
     },
@@ -61,7 +63,7 @@ def run():
         rule_based_text = " ".join(rule_based_reasons)
         rule_based_result = score(rule_based_text, expected_concepts)
 
-        llm_text = llm_diagnose(query)
+        llm_text = diagnose_and_fix(query)["explanation"]
         llm_result = score(llm_text, expected_concepts)
 
         if rule_based_result:

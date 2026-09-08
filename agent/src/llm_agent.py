@@ -27,7 +27,6 @@ KNOWN_TABLES = [
 
 client = bigquery.Client(project=PROJECT_ID)
 
-
 def get_flagged_queries():
     """Returns flagged rows from fct_flagged_queries, most expensive first."""
     sql = f"""
@@ -55,14 +54,12 @@ def find_table(query_text: str) -> str | None:
             return table
     return None
 
-
 def get_schema(table_id: str) -> list[str]:
     """Returns column name/type pairs for a table, pre-quoted with backticks
     so reserved-word column names (like `hash` or `by`) can't break generated SQL.
     """
     table = client.get_table(table_id)
     return [f"`{field.name}` ({field.field_type})" for field in table.schema]
-
 
 def get_partition_info(table_id: str) -> str:
     """Returns a plain-English description of a table's partitioning and clustering."""
@@ -91,50 +88,6 @@ def parse_llm_json(raw_text: str) -> dict:
         text = text.strip()
 
     return json.loads(text)
-
-def build_prompt(query_text: str, schema: list[str], partition_info: str) -> str:
-    """Builds the prompt sent to the LLM for one flagged query."""
-    schema_text = "\n".join(schema)
-    return f"""You are a BigQuery cost optimization expert. A query has been
-flagged as unusually expensive. Explain specifically why, using the table
-schema and partitioning info below, and suggest one concrete fix.
-
-Query:
-{query_text}
-
-Table schema:
-{schema_text}
-
-Table partitioning:
-{partition_info}
-
-Important: a WHERE filter only reduces cost if it targets the actual
-partitioning column on a partitioned table. If the table is not
-partitioned, filtering does not reduce bytes scanned - only selecting
-fewer columns does. Do not suggest adding a filter as a cost fix unless
-the table is genuinely partitioned on the relevant column.
-
-Do not assume a query is merely exploratory just because it selects few
-columns or uses LIMIT - it may be intended to retrieve real data for
-downstream use. Do not suggest using a free table-preview feature as a
-fix unless the query is clearly a one-off inspection. If the query
-appears likely to run repeatedly, suggest materializing a smaller derived
-table instead of rescanning the full table each time.
-
-Reply in 2-3 sentences. Be specific about which columns or clauses drive
-the cost - do not give a generic answer."""
-
-
-def diagnose(query_text: str) -> str:
-    """Returns an LLM-generated explanation for one flagged query."""
-    table = find_table(query_text)
-    if table is None:
-        return "Could not identify table - skipping LLM diagnosis."
-
-    schema = get_schema(table)
-    partition_info = get_partition_info(table)
-    prompt = build_prompt(query_text, schema, partition_info)
-    return ask_llm(prompt)
 
 def build_fix_prompt(query_text: str, schema: list[str], partition_info: str) -> str:
     """Builds a prompt asking the LLM to diagnose a query and rewrite it."""
@@ -165,6 +118,14 @@ not an acceptable fix.
 Column names in the schema above are shown with backticks. Keep them
 backtick-quoted in the fixed query exactly as shown.
 
+If the original query uses SELECT *, still propose narrowing to the
+columns most likely needed, explicitly excluding large, rarely-needed
+fields like free-text blobs - state in the explanation that this
+assumes those fields aren't required downstream, rather than claiming
+guaranteed equivalence. Only respond with "fixed_query": null when the
+query already selects a narrow, deliberate set of columns and no
+further column or partition-based reduction is reasonably available.
+
 Reply with valid JSON only, no other text, in exactly this format:
 {{"explanation": "2-3 sentences on what drives the cost", "fixed_query": "the corrected SQL as a single string"}}"""
 
@@ -190,7 +151,6 @@ def estimate_bytes_for(sql: str) -> int:
     query_job = client.query(sql, job_config=job_config)
     return query_job.total_bytes_processed
 
-
 def validate_fix(original_query: str, fixed_query: str) -> dict:
     """Dry-runs the fixed query to check it's valid and measure real byte savings."""
     if fixed_query is None:
@@ -205,8 +165,25 @@ def validate_fix(original_query: str, fixed_query: str) -> dict:
 
 if __name__ == "__main__":
     flagged = get_flagged_queries()
-    row = flagged[0]
-    result = diagnose_and_fix(row.query)
-    print("Fixed query:", result["fixed_query"])
-    print()
-    print("Validation:", validate_fix(row.query, result["fixed_query"]))
+    print(f"Found {len(flagged)} flagged queries\n")
+
+    for row in flagged:
+        result = diagnose_and_fix(row.query)
+        validation = validate_fix(row.query, result["fixed_query"])
+
+        print(f"Owner: {row.query_owner}")
+        print(f"Cost: ${row.estimated_cost_usd:.6f} (avg: ${row.avg_cost_usd:.6f})")
+        print(f"Explanation: {result['explanation']}")
+        print(f"Fixed query: {result['fixed_query']}")
+
+        if result["fixed_query"] is None:
+            print("No query-level fix available - this query may need materialization instead.")
+        elif validation["valid"]:
+            original_gb = validation["original_bytes"] / 1024**3
+            fixed_gb = validation["fixed_bytes"] / 1024**3
+            reduction_pct = (1 - validation["fixed_bytes"] / validation["original_bytes"]) * 100
+            print(f"Validated: {original_gb:.3f} GB -> {fixed_gb:.3f} GB ({reduction_pct:.1f}% reduction)")
+        else:
+            print(f"Fix could not be validated: {validation.get('error', 'unknown error')}")
+
+        print()

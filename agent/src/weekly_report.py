@@ -3,14 +3,14 @@ recurring patterns, opens a GitHub issue for each, then posts a Slack
 digest linking to all of them.
 """
 
-from llm_agent import get_flagged_queries, get_recurring_queries, diagnose
+from llm_agent import get_flagged_queries, get_recurring_queries, diagnose_and_fix, validate_fix
 from slack_client import send_slack_message
 from github_client import create_github_issue
 
 
-def build_issue_body(row, diagnosis_text: str) -> str:
+def build_issue_body(row, result: dict, validation: dict) -> str:
     """Builds the full GitHub issue body for one flagged query."""
-    return f"""**Owner:** {row.query_owner}
+    body = f"""**Owner:** {row.query_owner}
 **Cost:** ${row.estimated_cost_usd:.6f} (project average: ${row.avg_cost_usd:.6f})
 
 **Query:**
@@ -19,8 +19,21 @@ def build_issue_body(row, diagnosis_text: str) -> str:
 ```
 
 **Diagnosis:**
-{diagnosis_text}
+{result['explanation']}
 """
+
+    if result["fixed_query"] and validation["valid"]:
+        original_gb = validation["original_bytes"] / 1024**3
+        fixed_gb = validation["fixed_bytes"] / 1024**3
+        reduction_pct = (1 - validation["fixed_bytes"] / validation["original_bytes"]) * 100
+        body += f"""
+**Suggested fix** (validated, {reduction_pct:.1f}% byte reduction, {original_gb:.3f} GB -> {fixed_gb:.3f} GB):
+```sql
+{result['fixed_query']}
+```
+"""
+
+    return body
 
 
 def build_recurring_issue_body(row) -> str:
@@ -68,10 +81,11 @@ def run():
 
     flagged_urls = []
     for row in flagged_queries:
-        diagnosis_text = diagnose(row.query)
+        result = diagnose_and_fix(row.query)
+        validation = validate_fix(row.query, result["fixed_query"])
 
         issue_title = f"Expensive query flagged: {row.query_owner} (${row.estimated_cost_usd:.6f})"
-        issue_body = build_issue_body(row, diagnosis_text)
+        issue_body = build_issue_body(row, result, validation)
         issue_url = create_github_issue(issue_title, issue_body)
         flagged_urls.append(issue_url)
 
