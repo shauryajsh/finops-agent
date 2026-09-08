@@ -49,7 +49,7 @@ grouped as (
     select
         query_fingerprint,
         any_value(query) as sample_query,
-        any_value(simulated_user) as most_recent_owner,
+        array_agg(simulated_user order by creation_time desc limit 1)[offset(0)] as most_recent_owner,
         count(*) as run_count,
         sum(estimated_cost_usd) as total_cost_usd,
         avg(estimated_cost_usd) as avg_cost_per_run_usd,

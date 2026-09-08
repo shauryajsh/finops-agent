@@ -37,6 +37,15 @@ def get_flagged_queries():
     """
     return list(client.query(sql).result())
 
+def get_recurring_queries():
+    """Returns recurring query patterns flagged as worth attention, costliest first."""
+    sql = f"""
+        SELECT sample_query, most_recent_owner, run_count, total_cost_usd, avg_cost_per_run_usd
+        FROM `{PROJECT_ID}.{DATASET}.fct_recurring_queries`
+        WHERE is_recurring_flagged = true
+        ORDER BY total_cost_usd DESC
+    """
+    return list(client.query(sql).result())
 
 def find_table(query_text: str) -> str | None:
     """Returns the known table referenced in a query, if any."""
