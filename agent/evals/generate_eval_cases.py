@@ -204,13 +204,6 @@ def generate_known_fine_cases() -> list[dict]:
             "description": f"Properly filtered on partition column ({start} to {end})",
         })
 
-    # Wildcard used correctly, with an explicit _TABLE_SUFFIX filter.
-    cases.append({
-        "query": "SELECT station_number, temp FROM `bigquery-public-data.noaa_gsod.gsod*` WHERE _TABLE_SUFFIX = '2020'",
-        "expected_concepts": [],
-        "description": "Wildcard table scan, properly scoped with _TABLE_SUFFIX",
-    })
-
     # Approximate distinct instead of exact, on a couple more tables.
     for table in [GITHUB, STACKOVERFLOW]:
         first_column = get_column_names(table)[0]

@@ -23,6 +23,13 @@ KNOWN_TABLES = [
     "bigquery-public-data.crypto_ethereum.transactions",
     "bigquery-public-data.github_repos.commits",
     "bigquery-public-data.hacker_news.full",
+    "bigquery-public-data.stackoverflow.posts_questions",
+    "bigquery-public-data.samples.natality",
+    "bigquery-public-data.noaa_gsod.gsod2020",
+    "bigquery-public-data.covid19_open_data.covid19_open_data",
+    "bigquery-public-data.austin_311.311_service_requests",
+    "bigquery-public-data.new_york_citibike.citibike_trips",
+    "bigquery-public-data.samples.shakespeare",
 ]
 
 client = bigquery.Client(project=PROJECT_ID)
@@ -47,11 +54,27 @@ def get_recurring_queries():
     """
     return list(client.query(sql).result())
 
+# Wildcard patterns can't be looked up directly - map each known prefix
+# to one real table sharing the same schema, for schema-lookup purposes.
+WILDCARD_TABLE_MAP = {
+    "bigquery-public-data.noaa_gsod.gsod": "bigquery-public-data.noaa_gsod.gsod2020",
+    "bigquery-public-data.google_analytics_sample.ga_sessions_": "bigquery-public-data.google_analytics_sample.ga_sessions_20170801",
+}
+
 def find_table(query_text: str) -> str | None:
-    """Returns the known table referenced in a query, if any."""
+    """Returns the known table referenced in a query, if any.
+
+    Checks wildcard patterns first, since those never match a literal
+    table name directly.
+    """
+    for wildcard_prefix, representative_table in WILDCARD_TABLE_MAP.items():
+        if wildcard_prefix in query_text:
+            return representative_table
+
     for table in KNOWN_TABLES:
         if table in query_text:
             return table
+
     return None
 
 def get_schema(table_id: str) -> list[str]:
@@ -114,6 +137,10 @@ Do not add filters that were not in the original query unless they
 target the actual partitioning column on a partitioned table. Any other
 added filter changes which rows are returned, not just cost, and is
 not an acceptable fix.
+
+If the query is already efficient and no meaningful improvement exists,
+say so explicitly using the words "no issue" in your explanation, rather
+than inventing a marginal criticism just to have something to suggest.
 
 Column names in the schema above are shown with backticks. Keep them
 backtick-quoted in the fixed query exactly as shown.
