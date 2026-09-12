@@ -77,12 +77,11 @@ def find_table(query_text: str) -> str | None:
 
     return None
 
-def get_schema(table_id: str) -> list[str]:
-    """Returns column name/type pairs for a table, pre-quoted with backticks
-    so reserved-word column names (like `hash` or `by`) can't break generated SQL.
-    """
+def get_schema(table_id: str, max_columns: int = 25) -> list[str]:
+    """Returns column name/type pairs for a table, capped to control prompt size."""
     table = client.get_table(table_id)
-    return [f"`{field.name}` ({field.field_type})" for field in table.schema]
+    columns = [f"`{field.name}` ({field.field_type})" for field in table.schema]
+    return columns[:max_columns]
 
 def get_partition_info(table_id: str) -> str:
     """Returns a plain-English description of a table's partitioning and clustering."""

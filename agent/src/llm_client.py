@@ -31,11 +31,15 @@ def ask_llm(prompt: str) -> str:
     except Exception as e:
         print(f"Gemini failed ({e}), falling back to Groq")
 
-    response = groq_client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return response.choices[0].message.content
+    try:
+        response = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"Groq also failed ({e})")
+        return "LLM_UNAVAILABLE: both providers failed for this request."
 
 
 if __name__ == "__main__":
