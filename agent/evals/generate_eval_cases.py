@@ -215,7 +215,7 @@ def generate_known_fine_cases() -> list[dict]:
 
     # A single real table, not a wildcard pattern.
     cases.append({
-        "query": "SELECT * FROM `bigquery-public-data.noaa_gsod.gsod2020`",
+        "query": "SELECT station_number, temp FROM `bigquery-public-data.noaa_gsod.gsod2020`",
         "expected_concepts": [],
         "description": "A single real table, not a wildcard pattern",
     })
