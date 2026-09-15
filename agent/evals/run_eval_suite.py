@@ -45,15 +45,35 @@ def get_all_cases() -> list[dict]:
     return cases
 
 
-def score(diagnosis_text: str, expected_concepts: list[str]) -> bool:
-    """Checks whether every expected concept appears in the diagnosis.
+def score_rule_based(diagnosis_text: str, expected_concepts: list[str]) -> bool:
+    """Checks whether every expected concept appears in the diagnosis text.
 
-    An empty expected_concepts list means the case should NOT be flagged.
+    known_fine cases (empty expected_concepts) check for rule_based_agent's
+    own "no issue matched" text, since it has no structured signal.
     """
     diagnosis_text = diagnosis_text.lower()
 
     if not expected_concepts:
-        return "no issue" in diagnosis_text
+        return "no issue matched" in diagnosis_text
+
+    for concept in expected_concepts:
+        if concept.lower() not in diagnosis_text:
+            return False
+
+    return True
+
+
+def score_llm(llm_result: dict, expected_concepts: list[str]) -> bool:
+    """Checks whether the LLM result matches what the case expects.
+
+    known_fine cases (empty expected_concepts) use the structured
+    has_issue field - more reliable across models than matching an
+    exact phrase in free text.
+    """
+    if not expected_concepts:
+        return llm_result.get("has_issue") is False
+
+    diagnosis_text = llm_result["explanation"].lower()
 
     for concept in expected_concepts:
         if concept.lower() not in diagnosis_text:
@@ -75,11 +95,11 @@ def run():
 
         rule_based_reasons = rule_based_diagnose(query)
         rule_based_text = " ".join(rule_based_reasons)
-        rule_based_ok = score(rule_based_text, expected_concepts)
+        rule_based_ok = score_rule_based(rule_based_text, expected_concepts)
 
         llm_result = diagnose_and_fix(query)
         llm_text = llm_result["explanation"]
-        llm_ok = score(llm_text, expected_concepts)
+        llm_ok = score_llm(llm_result, expected_concepts)
 
         if category not in results_by_category:
             results_by_category[category] = {"rule_based_passed": 0, "llm_passed": 0, "total": 0}
