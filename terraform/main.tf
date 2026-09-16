@@ -23,9 +23,9 @@ resource "google_service_account" "finops_agent" {
   description  = "Service account used by the FinOps agent when running on AWS Lambda"
 }
 
-resource "google_bigquery_dataset_iam_member" "finops_agent_reader" {
+resource "google_bigquery_dataset_iam_member" "finops_agent_editor" {
   dataset_id = google_bigquery_dataset.dbt_finops.dataset_id
-  role       = "roles/bigquery.dataViewer"
+  role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${google_service_account.finops_agent.email}"
 }
 
