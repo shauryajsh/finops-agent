@@ -31,6 +31,26 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
 
+      - name: Configure dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          dbt_finops:
+            target: dev
+            outputs:
+              dev:
+                type: bigquery
+                method: oauth
+                project: ${{ vars.GCP_PROJECT_ID }}
+                dataset: ${{ vars.BIGQUERY_DATASET }}
+                threads: 4
+                location: US
+          EOF
+
+      - name: Run dbt
+        working-directory: dbt_finops
+        run: dbt run
+
       - name: Run weekly report
         env:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
