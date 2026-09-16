@@ -34,3 +34,9 @@ resource "google_project_iam_member" "finops_agent_job_user" {
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${google_service_account.finops_agent.email}"
 }
+
+resource "google_project_iam_member" "finops_agent_resource_viewer" {
+  project = var.gcp_project_id
+  role    = "roles/bigquery.resourceViewer"
+  member  = "serviceAccount:${google_service_account.finops_agent.email}"
+}
