@@ -17,3 +17,9 @@ __pycache__/
 dbt_finops/target/
 dbt_finops/logs/
 logs/
+
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
