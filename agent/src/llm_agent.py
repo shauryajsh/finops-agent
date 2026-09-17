@@ -1,12 +1,13 @@
 """LLM-powered diagnosis of flagged BigQuery queries.
 
-Reads flagged rows from fct_flagged_queries, fetches each query's table
-schema and partitioning info, and asks the LLM to explain why the query
-is expensive with a specific fix.
+Reads flagged rows from fct_flagged_queries, discovers the table each
+query references directly from BigQuery, and asks the LLM to explain
+why it's expensive and propose a dry-run-validated fix.
 """
 
 import os
 import json
+import re
 from dotenv import load_dotenv
 from google.cloud import bigquery
 from llm_client import ask_llm
@@ -17,22 +18,27 @@ load_dotenv()
 PROJECT_ID = os.environ["GCP_PROJECT_ID"]
 DATASET = os.environ["BIGQUERY_DATASET"]
 
-# Tables our traffic generator queries against - used to detect which
-# table a flagged query references, so we can fetch its schema.
-KNOWN_TABLES = [
-    "bigquery-public-data.crypto_ethereum.transactions",
-    "bigquery-public-data.github_repos.commits",
-    "bigquery-public-data.hacker_news.full",
-    "bigquery-public-data.stackoverflow.posts_questions",
-    "bigquery-public-data.samples.natality",
-    "bigquery-public-data.noaa_gsod.gsod2020",
-    "bigquery-public-data.covid19_open_data.covid19_open_data",
-    "bigquery-public-data.austin_311.311_service_requests",
-    "bigquery-public-data.new_york_citibike.citibike_trips",
-    "bigquery-public-data.samples.shakespeare",
+# A real deployment only needs its own GCP_PROJECT_ID for table discovery -
+# below. These external datasets exist only because this demo borrows
+# public datasets in place of a real company's own tables, and
+# bigquery-public-data itself is too large to enumerate in full.
+EXTERNAL_DATASETS = [
+    "bigquery-public-data.hacker_news",
+    "bigquery-public-data.github_repos",
+    "bigquery-public-data.crypto_ethereum",
+    "bigquery-public-data.stackoverflow",
+    "bigquery-public-data.samples",
+    "bigquery-public-data.covid19_open_data",
+    "bigquery-public-data.austin_311",
+    "bigquery-public-data.new_york_citibike",
+    "bigquery-public-data.noaa_gsod",
+    "bigquery-public-data.google_analytics_sample",
 ]
 
+_discovered_tables = None
+
 client = bigquery.Client(project=PROJECT_ID)
+
 
 def get_flagged_queries():
     """Returns flagged rows from fct_flagged_queries, most expensive first."""
@@ -44,6 +50,7 @@ def get_flagged_queries():
     """
     return list(client.query(sql).result())
 
+
 def get_recurring_queries():
     """Returns recurring query patterns flagged as worth attention, costliest first."""
     sql = f"""
@@ -54,34 +61,57 @@ def get_recurring_queries():
     """
     return list(client.query(sql).result())
 
-# Wildcard patterns can't be looked up directly - map each known prefix
-# to one real table sharing the same schema, for schema-lookup purposes.
-WILDCARD_TABLE_MAP = {
-    "bigquery-public-data.noaa_gsod.gsod": "bigquery-public-data.noaa_gsod.gsod2020",
-    "bigquery-public-data.google_analytics_sample.ga_sessions_": "bigquery-public-data.google_analytics_sample.ga_sessions_20170801",
-}
+
+def discover_tables() -> list[str]:
+    """Finds every real table in the project, plus the configured external datasets."""
+    tables = []
+
+    for dataset in client.list_datasets(project=PROJECT_ID):
+        for table in client.list_tables(dataset.reference):
+            tables.append(f"{PROJECT_ID}.{dataset.dataset_id}.{table.table_id}")
+
+    for dataset_ref in EXTERNAL_DATASETS:
+        for table in client.list_tables(dataset_ref):
+            tables.append(f"{dataset_ref}.{table.table_id}")
+
+    return tables
+
 
 def find_table(query_text: str) -> str | None:
-    """Returns the known table referenced in a query, if any.
+    """Returns the real table referenced in a query, if any.
 
-    Checks wildcard patterns first, since those never match a literal
-    table name directly.
+    Tables are discovered from BigQuery directly, once per run, rather
+    than hardcoded - any table actually in scope is found automatically.
+    Wildcard references are matched by prefix against the same discovered
+    list, since a wildcard pattern never matches a literal table name.
     """
-    for wildcard_prefix, representative_table in WILDCARD_TABLE_MAP.items():
-        if wildcard_prefix in query_text:
-            return representative_table
+    global _discovered_tables
+    if _discovered_tables is None:
+        _discovered_tables = discover_tables()
 
-    for table in KNOWN_TABLES:
+    wildcard_match = re.search(r"`([\w.-]+\.[\w-]+\.[\w]+)\*`", query_text)
+    if wildcard_match:
+        prefix = wildcard_match.group(1)
+        for table in _discovered_tables:
+            if table.startswith(prefix):
+                return table
+
+    for table in _discovered_tables:
         if table in query_text:
             return table
 
     return None
 
+
 def get_schema(table_id: str, max_columns: int = 25) -> list[str]:
-    """Returns column name/type pairs for a table, capped to control prompt size."""
+    """Returns column name/type pairs for a table, pre-quoted with backticks
+    so reserved-word column names (like `hash` or `by`) can't break generated
+    SQL, and capped to control prompt size on wide tables.
+    """
     table = client.get_table(table_id)
     columns = [f"`{field.name}` ({field.field_type})" for field in table.schema]
     return columns[:max_columns]
+
 
 def get_partition_info(table_id: str) -> str:
     """Returns a plain-English description of a table's partitioning and clustering."""
@@ -99,6 +129,7 @@ def get_partition_info(table_id: str) -> str:
 
     return f"{partition_text}. {clustering_text}."
 
+
 def parse_llm_json(raw_text: str) -> dict:
     """Parses the LLM's JSON reply, stripping markdown code fences if present."""
     text = raw_text.strip()
@@ -110,6 +141,7 @@ def parse_llm_json(raw_text: str) -> dict:
         text = text.strip()
 
     return json.loads(text)
+
 
 def build_fix_prompt(query_text: str, schema: list[str], partition_info: str) -> str:
     """Builds a prompt asking the LLM to diagnose a query and rewrite it."""
@@ -137,9 +169,15 @@ target the actual partitioning column on a partitioned table. Any other
 added filter changes which rows are returned, not just cost, and is
 not an acceptable fix.
 
-If the query is already efficient and no meaningful improvement exists,
-say so explicitly using the words "no issue" in your explanation, rather
-than inventing a marginal criticism just to have something to suggest.
+Before answering, decide: is there any further change to THIS query that
+would reduce cost, given the table's actual structure? If it already
+selects the minimum needed columns on an unpartitioned table, already
+filters on the correct partition column, or already uses an approximate
+function instead of an exact one - there is nothing left to fix, even if
+it still scans real data due to the table's own size. Set has_issue to
+false in that case, and explain why in one sentence. Do not describe
+cost mechanics as a problem when the query has already applied the best
+available fix for that table.
 
 Column names in the schema above are shown with backticks. Keep them
 backtick-quoted in the fixed query exactly as shown.
@@ -153,7 +191,8 @@ query already selects a narrow, deliberate set of columns and no
 further column or partition-based reduction is reasonably available.
 
 Reply with valid JSON only, no other text, in exactly this format:
-{{"explanation": "2-3 sentences on what drives the cost", "fixed_query": "the corrected SQL as a single string"}}"""
+{{"explanation": "2-3 sentences on what drives the cost", "fixed_query": "the corrected SQL as a single string", "has_issue": true or false}}"""
+
 
 def diagnose_and_fix(query_text: str) -> dict:
     """Returns an explanation and a corrected query for one flagged query."""
@@ -171,11 +210,13 @@ def diagnose_and_fix(query_text: str) -> dict:
     except (json.JSONDecodeError, IndexError):
         return {"explanation": raw_response, "fixed_query": None}
 
+
 def estimate_bytes_for(sql: str) -> int:
     """Returns bytes a query would process, without running it."""
     job_config = bigquery.QueryJobConfig(dry_run=True, use_query_cache=False)
     query_job = client.query(sql, job_config=job_config)
     return query_job.total_bytes_processed
+
 
 def validate_fix(original_query: str, fixed_query: str) -> dict:
     """Dry-runs the fixed query to check it's valid and measure real byte savings."""
@@ -188,6 +229,7 @@ def validate_fix(original_query: str, fixed_query: str) -> dict:
         return {"valid": True, "original_bytes": original_bytes, "fixed_bytes": fixed_bytes}
     except Exception as e:
         return {"valid": False, "error": str(e), "original_bytes": None, "fixed_bytes": None}
+
 
 if __name__ == "__main__":
     flagged = get_flagged_queries()
