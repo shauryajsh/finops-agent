@@ -24,6 +24,14 @@ Slack digest + GitHub issues
 
 Tables get discovered live from BigQuery rather than hardcoded. Runs on a weekly GitHub Actions schedule. Auth to GCP is via Workload Identity Federation, so there's no service account key sitting in a secret anywhere.
 
+## On-demand API
+
+Alongside the weekly job, the same diagnosis logic is also available as a REST API. A FastAPI wrapper exposes /diagnose so a query can be checked before it ever runs, in a CI pipeline reviewing a pull request, for example, rather than only after it's already shown up in real billing history.
+
+It runs on Cloud Run, deployed straight from source with no Dockerfile needed. It reuses the same service account and IAM roles already set up in Terraform, so there's no separate infrastructure to manage. The API keeps its own smaller requirements.txt inside agent/src, since it never touches dbt, and pulling in dbt's own dependencies caused a real version conflict at build time that a shared requirements file was silently hiding.
+
+The service stays private by default, only callable with a valid GCP identity token, not open to the public internet.
+
 ## Eval results
 
 Ran 60 cases across 7 real anti-pattern categories (SELECT *, missing partition pruning, wildcard scans, COUNT DISTINCT, JS UDFs, fan-out joins, plus known-fine queries that shouldn't get flagged at all), built against real public BigQuery tables.
@@ -39,6 +47,7 @@ Worth being honest about that number: a chunk of the LLM's "misses" are the eval
 - When the fix trims a SELECT *, it's guessing which columns are actually needed downstream - a reasonable guess, not a guarantee.
 - Free tiers cap out fast (Gemini: 20 requests/day, Groq: 8,000 tokens/minute). Real production volume needs a paid tier.
 - Table discovery is dynamic for a deployment's own project, but the demo also names a fixed list of external public-data datasets to search, since bigquery-public-data itself is too large to enumerate in full.
+- The API is deliberately private, callable only with a valid GCP identity token. It's meant for the account's own CI or internal use, not as a shared public service.
 
 ## Setup
 
@@ -54,7 +63,7 @@ You'll need a GCP project with BigQuery on, and dbt_finops/ pointed at your own 
 
 ## Stack
 
-BigQuery, dbt, Python, Gemini + Groq, Terraform, GitHub Actions, Workload Identity Federation.
+BigQuery, dbt, Python, Gemini + Groq, Terraform, GitHub Actions, Cloud Run, FastAPI.
 
 ## Related work
 
